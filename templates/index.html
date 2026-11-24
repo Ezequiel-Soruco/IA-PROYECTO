@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Escudo Digital La Paz — Ciberseguridad & IA Multimodal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'cyber-dark': '#0a0e1a',
+            'cyber-darker': '#060911',
+            'cyber-panel': '#0d1526',
+            'cyber-border': '#1a2d4f',
+            'cyber-blue': '#00d4ff',
+            'cyber-green': '#00ff88',
+            'cyber-red': '#ff3366',
+            'cyber-yellow': '#ffcc00',
+            'cyber-purple': '#b026ff',
+          },
+          fontFamily: {
+            mono: ['JetBrains Mono', 'Consolas', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'JetBrains Mono', monospace; }
+    body { background-color: #0a0e1a; }
+    .grid-bg {
+      background-image: linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+    .risk-bar-track { background: rgba(255,255,255,0.06); border-radius: 999px; height: 12px; overflow: hidden; }
+    .risk-bar-fill { height: 100%; transition: width 1s ease-in-out; }
+    .loader { border: 2px solid rgba(0, 212, 255, 0.2); border-top-color: #00d4ff; border-radius: 50%; width: 22px; height: 22px; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body class="min-h-screen grid-bg text-gray-200">
+
+  <!-- HEADER -->
+  <header class="border-b border-cyber-border bg-cyber-darker/90 backdrop-blur sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <svg class="w-9 h-9 text-cyber-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.955 11.955 0 003 10c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+        </svg>
+        <div>
+          <h1 class="text-base font-bold text-cyber-blue tracking-wide">ESCUDO DIGITAL LA PAZ · SOC v2.0</h1>
+          <p class="text-[11px] text-gray-400">DETECCIÓN TEMPRANA MULTIMODAL DE PHISHING & SMISHING BOLIVIA</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-xs">
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyber-green animate-pulse"></span><span class="text-gray-300">OSINT/SSL Activo</span></div>
+        <div class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-cyber-blue animate-pulse"></span><span class="text-gray-300">OCR & NLP</span></div>
+        <div id="live-clock" class="text-gray-400 font-mono">--:--:--</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- STATS BAR -->
+  <div class="border-b border-cyber-border bg-cyber-panel/60">
+    <div class="max-w-7xl mx-auto px-4 py-2 flex items-center gap-6 text-xs overflow-x-auto">
+      <div><span class="text-gray-400">Total escaneos:</span> <b id="stat-total" class="text-cyber-blue">0</b></div>
+      <div><span class="text-gray-400">Amenazas bloqueadas:</span> <b id="stat-threats" class="text-cyber-red">0</b></div>
+      <div><span class="text-gray-400">Sospechosos:</span> <b id="stat-suspicious" class="text-cyber-yellow">0</b></div>
+      <div><span class="text-gray-400">Seguros:</span> <b id="stat-safe" class="text-cyber-green">0</b></div>
+      <div class="ml-auto text-[11px] text-gray-400 flex items-center gap-1">📍 La Paz, Bolivia (UMSA · Uyustus · Sopocachi · Sur)</div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <main class="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- COLUMNA IZQUIERDA: CONSOLA MULTIMODAL -->
+    <div class="lg:col-span-2 space-y-6">
+
+      <div class="bg-cyber-panel border border-cyber-border rounded-xl p-5 shadow-lg">
+        <div class="flex items-center justify-between mb-4 pb-2 border-b border-cyber-border">
+          <div class="flex gap-2">
+            <button onclick="switchTab('message')" id="tab-btn-message" class="text-xs px-3 py-1.5 rounded-lg font-semibold bg-cyber-blue text-cyber-dark">💬 Mensaje / Chat</button>
+            <button onclick="switchTab('url')" id="tab-btn-url" class="text-xs px-3 py-1.5 rounded-lg font-semibold text-gray-400 hover:text-white">🔗 URL Sospechosa</button>
+            <button onclick="switchTab('ocr')" id="tab-btn-ocr" class="text-xs px-3 py-1.5 rounded-lg font-semibold text-gray-400 hover:text-white">📸 Captura (OCR)</button>
+          </div>
+          <span class="text-[11px] text-gray-500">Mapeo La Paz</span>
+        </div>
+
+        <!-- SELECTOR DE MACRODISTRITO -->
+        <div class="mb-4">
+          <label class="block text-[11px] text-cyber-blue mb-1 font-semibold">📍 MACRODISTRITO / ZONA DE LA PAZ (Para alerta temprana):</label>
+          <select id="macrodistrito-input" class="w-full bg-cyber-darker border border-cyber-border rounded-lg px-3 py-2 text-xs text-gray-200">
+            <option value="Centro (El Prado, UMSA, Casco Urbano)">Centro (El Prado, UMSA, Casco Urbano)</option>
+            <option value="Max Paredes (Eloy Salmón, Uyustus, Buenos Aires)">Max Paredes (Eloy Salmón, Uyustus, Buenos Aires)</option>
+            <option value="Cotahuma (Sopocachi, San Pedro, Pasankeri)">Cotahuma (Sopocachi, San Pedro, Pasankeri)</option>
+            <option value="Sur (Calacoto, San Miguel, Obrajes, Achumani)">Sur (Calacoto, San Miguel, Obrajes, Achumani)</option>
+            <option value="San Antonio (Villa Copacabana, Pampahasi)">San Antonio (Villa Copacabana, Pampahasi)</option>
+            <option value="Periférica (Achachicala, Vino Tinto)">Periférica (Achachicala, Vino Tinto)</option>
+            <option value="Mallasa (Mallasilla, Jupapina)">Mallasa (Mallasilla, Jupapina)</option>
+            <option value="El Alto / Zona Conurbada (Ceja, Senkata)">El Alto / Zona Conurbada (Ceja, Senkata)</option>
+          </select>
+        </div>
+
+        <!-- TAB 1: MENSAJE -->
+        <div id="tab-message" class="space-y-3">
+          <label class="block text-[11px] text-gray-400 font-semibold">TEXTO DEL MENSAJE (WhatsApp, SMS, Correo):</label>
+          <textarea id="msg-input" rows="4" placeholder="Ej: URGENTE Banco Unión: Su cuenta ha sido bloqueada. Ingrese a http://bancounion-bo.net para confirmar clave..." class="w-full bg-cyber-darker border border-cyber-border rounded-lg p-3 text-xs text-gray-200 placeholder-gray-600 resize-none"></textarea>
+        </div>
+
+        <!-- TAB 2: URL -->
+        <div id="tab-url" class="space-y-3 hidden">
+          <label class="block text-[11px] text-gray-400 font-semibold">ENLACE SOSPECHOSO (Inspección DNS, SSL, WHOIS y Redirecciones):</label>
+          <input id="url-input" type="text" placeholder="https://ejemplo-bancounion-bolivia.xyz/login" class="w-full bg-cyber-darker border border-cyber-border rounded-lg p-3 text-xs text-gray-200 placeholder-gray-600" />
+        </div>
+
+        <!-- TAB 3: OCR IMAGEN -->
+        <div id="tab-ocr" class="space-y-3 hidden">
+          <label class="block text-[11px] text-gray-400 font-semibold">SUBIR CAPTURA DE PANTALLA (OCR + Detección de Enlaces):</label>
+          <div class="border-2 border-dashed border-cyber-border rounded-lg p-4 text-center hover:border-cyber-blue transition cursor-pointer" onclick="document.getElementById('image-file-input').click()">
+            <svg class="w-8 h-8 mx-auto text-gray-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <p id="image-file-name" class="text-xs text-gray-400">Haga clic o arrastre una imagen (.png, .jpg, .jpeg)</p>
+            <input id="image-file-input" type="file" accept="image/*" class="hidden" onchange="handleImageSelected(event)" />
+          </div>
+        </div>
+
+        <!-- EJEMPLOS RÁPIDOS -->
+        <div class="mt-4 pt-3 border-t border-cyber-border flex flex-wrap gap-2 text-xs">
+          <span class="text-gray-500 self-center text-[11px]">Pruebas:</span>
+          <button onclick="loadDemo('union')" class="px-2.5 py-1 rounded bg-red-950/40 border border-red-800/40 text-cyber-red text-[11px]">⚠️ Banco Unión (Phishing)</button>
+          <button onclick="loadDemo('bono')" class="px-2.5 py-1 rounded bg-yellow-950/40 border border-yellow-800/40 text-cyber-yellow text-[11px]">⚡ Bono COVID (Smishing)</button>
+          <button onclick="loadDemo('gamlp')" class="px-2.5 py-1 rounded bg-green-950/40 border border-green-800/40 text-cyber-green text-[11px]">✓ GAMLP (Oficial)</button>
+        </div>
+
+        <!-- BOTÓN ANALIZAR -->
+        <button id="analyze-btn" onclick="executeAnalysis()" class="mt-5 w-full py-3 rounded-lg font-bold text-xs tracking-wider bg-gradient-to-r from-cyan-900 to-blue-900 border border-cyber-blue text-cyber-blue hover:brightness-125 transition flex items-center justify-center gap-2">
+          <span id="btn-text">🛡️ EJECUTAR ANÁLISIS DE CIBERSEGURIDAD & IA</span>
+          <div id="btn-loader" class="loader hidden"></div>
+        </button>
+      </div>
+
+      <!-- TARJETA DE RESULTADO -->
+      <div id="result-card" class="hidden bg-cyber-panel border border-cyber-border rounded-xl p-5 shadow-lg space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-gray-300">DIAGNÓSTICO FORENSE & SCORE UNIFICADO</span>
+          <span id="res-timestamp" class="text-[11px] text-gray-500"></span>
+        </div>
+
+        <div id="res-verdict-box" class="p-4 rounded-xl border text-center">
+          <div id="res-verdict" class="text-xl font-bold tracking-wider"></div>
+          <div class="text-[11px] text-gray-400 mt-1">VEREDICTO INTEGRADO DE SEGURIDAD</div>
+        </div>
+
+        <!-- Score Meter -->
+        <div>
+          <div class="flex justify-between text-xs mb-1">
+            <span class="text-gray-400">Score de Riesgo Unificado:</span>
+            <span id="res-score" class="font-bold">0%</span>
+          </div>
+          <div class="risk-bar-track">
+            <div id="res-bar-fill" class="risk-bar-fill w-0 bg-cyber-green"></div>
+          </div>
+        </div>
+
+        <!-- DATOS NER & CLASIFICACIÓN -->
+        <div id="ocr-preview-box" class="hidden p-3 bg-cyber-darker rounded-lg border border-cyber-border text-xs">
+          <div class="text-cyber-blue font-semibold text-[11px] mb-1">TEXTO EXTRAÍDO POR OCR DE LA CAPTURA:</div>
+          <div id="ocr-extracted-text" class="text-gray-300 font-mono text-[11px] italic bg-black/40 p-2 rounded max-h-24 overflow-y-auto"></div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div class="p-3 bg-cyber-darker rounded-lg border border-cyber-border">
+            <div class="text-gray-500 text-[11px]">ENTIDAD DETECTADA</div>
+            <div id="res-entity" class="font-bold text-gray-200 mt-0.5">Ninguna / Genérica</div>
+          </div>
+          <div class="p-3 bg-cyber-darker rounded-lg border border-cyber-border">
+            <div class="text-gray-500 text-[11px]">VECTOR DE ATAQUE</div>
+            <div id="res-vector" class="font-bold text-gray-200 mt-0.5">No clasificado</div>
+          </div>
+        </div>
+
+        <!-- FORENSE TÉCNICO (WHOIS / SSL / REDIRECCIONES) -->
+        <div id="forensics-box" class="p-3 bg-cyber-darker rounded-lg border border-cyber-border space-y-2 text-xs">
+          <div class="text-cyber-blue font-semibold text-[11px]">AUDITORÍA DE INFRAESTRUCTURA WEB</div>
+          <div class="grid grid-cols-3 gap-2 text-[11px]">
+            <div><span class="text-gray-500">Antigüedad WHOIS:</span> <b id="res-whois" class="text-gray-300 block">N/A</b></div>
+            <div><span class="text-gray-500">Certificado SSL:</span> <b id="res-ssl" class="text-gray-300 block">N/A</b></div>
+            <div><span class="text-gray-500">Saltos Redirección:</span> <b id="res-hops" class="text-gray-300 block">0 saltos</b></div>
+          </div>
+        </div>
+
+        <!-- FACTORES EXPLICABLES -->
+        <div>
+          <div class="text-xs text-gray-400 mb-2 font-semibold">INDICADORES TÉCNICOS DETECTADOS (XAI):</div>
+          <div id="res-factors" class="space-y-1.5 text-xs"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: DASHBOARD GEOGRÁFICO DE LA PAZ -->
+    <div class="space-y-6">
+
+      <!-- MAPA DE CALOR POR MACRODISTRITOS -->
+      <div class="bg-cyber-panel border border-cyber-border rounded-xl p-5 shadow-lg space-y-3">
+        <div class="flex items-center justify-between border-b border-cyber-border pb-2">
+          <span class="text-xs font-bold text-cyber-blue">MAPA DE CALOR · LA PAZ</span>
+          <span class="text-[10px] bg-cyber-blue/10 text-cyber-blue px-2 py-0.5 rounded">En Tiempo Real</span>
+        </div>
+        <p class="text-[11px] text-gray-400">Distribución de reportes de estafas digitales por macrodistrito paceño:</p>
+        <div id="macrodistrito-list" class="space-y-2 text-xs">
+          <div class="text-gray-500 text-[11px]">Cargando incidencias...</div>
+        </div>
+      </div>
+
+      <!-- TOP ENTIDADES SUPLANTADAS -->
+      <div class="bg-cyber-panel border border-cyber-border rounded-xl p-5 shadow-lg space-y-3">
+        <div class="border-b border-cyber-border pb-2">
+          <span class="text-xs font-bold text-cyber-red">TOP ENTIDADES SUPLANTADAS EN BOLIVIA</span>
+        </div>
+        <div id="top-entities-list" class="space-y-2 text-xs">
+          <div class="text-gray-500 text-[11px]">Cargando estadísticas...</div>
+        </div>
+      </div>
+
+      <!-- NÚMEROS DE EMERGENCIA BOLIVIA -->
+      <div class="bg-cyber-panel border border-cyber-border rounded-xl p-4 text-xs space-y-2">
+        <div class="text-cyber-yellow font-bold text-[11px]">🚨 CANALES OFICIALES DE DENUNCIA</div>
+        <div class="text-[11px] text-gray-400 leading-relaxed">
+          • <b>FELCC Cibercrimen La Paz:</b> Sucre esq. Junín<br/>
+          • <b>Línea Banco Unión:</b> 800 10 2872<br/>
+          • <b>Línea BNB:</b> 800 10 7010<br/>
+          • <b>ASFI Reclamos:</b> 800 10 3103
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    let activeTab = 'message';
+    let selectedImageFile = null;
+
+    function updateClock() {
+      document.getElementById('live-clock').textContent = new Date().toLocaleTimeString('es-BO', { hour12: false });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    function switchTab(tab) {
+      activeTab = tab;
+      ['message', 'url', 'ocr'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          btn.className = 'text-xs px-3 py-1.5 rounded-lg font-semibold bg-cyber-blue text-cyber-dark';
+        } else {
+          btn.className = 'text-xs px-3 py-1.5 rounded-lg font-semibold text-gray-400 hover:text-white';
+        }
+      });
+    }
+
+    function handleImageSelected(event) {
+      const file = event.target.files[0];
+      if (file) {
+        selectedImageFile = file;
+        document.getElementById('image-file-name').textContent = `Archivo seleccionado: ${file.name} (${Math.round(file.size/1024)} KB)`;
+      }
+    }
+
+    function loadDemo(type) {
+      if (type === 'union') {
+        switchTab('message');
+        document.getElementById('msg-input').value = "URGENTE Banco Unión: Detectamos acceso sospechoso desde otra ciudad. Su cuenta será BLOQUEADA. Ingrese a http://bancounion-bo.net/verificar con su clave y PIN en menos de 2 horas.";
+      } else if (type === 'bono') {
+        switchTab('message');
+        document.getElementById('msg-input').value = "MINISTERIO DE ECONOMIA BOLIVIA: Usted fue seleccionado para cobrar el Bono Extraordinario de Bs. 2,000. Confirme su número de cuenta y CI en: http://bono-gobierno-bo.com antes de las 23:59.";
+      } else if (type === 'gamlp') {
+        switchTab('url');
+        document.getElementById('url-input').value = "https://www.gamlp.gob.bo/ciudadano/tramites";
+      }
+    }
+
+    async function executeAnalysis() {
+      const macro = document.getElementById('macrodistrito-input').value;
+      const btnText = document.getElementById('btn-text');
+      const btnLoader = document.getElementById('btn-loader');
+      btnText.classList.add('hidden');
+      btnLoader.classList.remove('hidden');
+
+      try {
+        let endpoint = '/api/v1/analyze-message';
+        let bodyData = null;
+        let isFormData = false;
+
+        if (activeTab === 'message') {
+          const msg = document.getElementById('msg-input').value.trim();
+          if (!msg) throw new Error("Ingrese un mensaje para analizar.");
+          endpoint = '/api/v1/analyze-message';
+          bodyData = JSON.stringify({ message: msg, macrodistrito: macro });
+        } else if (activeTab === 'url') {
+          const url = document.getElementById('url-input').value.trim();
+          if (!url) throw new Error("Ingrese una URL para analizar.");
+          endpoint = '/api/v1/analyze-url';
+          bodyData = JSON.stringify({ url: url, macrodistrito: macro });
+        } else if (activeTab === 'ocr') {
+          if (!selectedImageFile) throw new Error("Seleccione una captura de pantalla.");
+          
+          btnText.textContent = "🔍 LEYENDO TEXTO DE LA IMAGEN (OCR)...";
+          
+          // OCR 100% en el Navegador con Tesseract.js (Sin instalar nada en Windows)
+          let ocrText = "";
+          try {
+            const worker = await Tesseract.createWorker('spa');
+            const ret = await worker.recognize(selectedImageFile);
+            ocrText = ret.data.text;
+            await worker.terminate();
+          } catch(ocrErr) {
+            console.warn("Fallo spa, probando eng:", ocrErr);
+            const worker = await Tesseract.createWorker('eng');
+            const ret = await worker.recognize(selectedImageFile);
+            ocrText = ret.data.text;
+            await worker.terminate();
+          }
+
+          if (!ocrText || !ocrText.trim()) {
+            throw new Error("No se pudo detectar texto legible en la imagen.");
+          }
+
+          window.lastExtractedOcr = ocrText.trim();
+
+          btnText.textContent = "🛡️ ANALIZANDO CON IA & CIBERSEGURIDAD...";
+
+          // Extraer URLs de la imagen si existen
+          const urlMatch = ocrText.match(/(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.(?:tk|com|net|org|xyz|ml|ga|cf|bo|gob\.bo|com\.bo)[^\s]*)/i);
+          let foundUrl = urlMatch ? urlMatch[0] : null;
+
+          endpoint = '/api/analyze';
+          bodyData = JSON.stringify({ 
+            url: foundUrl,
+            message: ocrText, 
+            macrodistrito: macro 
+          });
+          isFormData = false;
+        }
+
+        const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: headers,
+          body: bodyData
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.detail || "Error en el servidor.");
+        }
+
+        const data = await response.json();
+        renderResult(data);
+        loadDashboardStats();
+
+      } catch (err) {
+        alert("Atención: " + err.message);
+      } finally {
+        btnText.classList.remove('hidden');
+        btnLoader.classList.add('hidden');
+      }
+    }
+
+    function renderResult(data) {
+      const card = document.getElementById('result-card');
+      card.classList.remove('hidden');
+      document.getElementById('res-timestamp').textContent = data.timestamp;
+
+      const score = data.risk_score;
+      const scoreEl = document.getElementById('res-score');
+      const barFill = document.getElementById('res-bar-fill');
+      const verdictEl = document.getElementById('res-verdict');
+      const verdictBox = document.getElementById('res-verdict-box');
+
+      scoreEl.textContent = score + "%";
+      barFill.style.width = score + "%";
+
+      if (data.verdict === 'PELIGROSO (PHISHING)') {
+        verdictBox.className = 'p-4 rounded-xl border border-red-500 bg-red-950/30 text-cyber-red';
+        verdictEl.textContent = '⛔ PELIGROSO (PHISHING / FRAUDE)';
+        barFill.className = 'risk-bar-fill bg-cyber-red';
+      } else if (data.verdict === 'SOSPECHOSO') {
+        verdictBox.className = 'p-4 rounded-xl border border-yellow-500 bg-yellow-950/30 text-cyber-yellow';
+        verdictEl.textContent = '⚠️ SOSPECHOSO';
+        barFill.className = 'risk-bar-fill bg-cyber-yellow';
+      } else {
+        verdictBox.className = 'p-4 rounded-xl border border-green-500 bg-green-950/30 text-cyber-green';
+        verdictEl.textContent = '✓ SEGURO';
+        barFill.className = 'risk-bar-fill bg-cyber-green';
+      }
+
+      // Mostrar texto OCR si vino de una captura
+      const ocrBox = document.getElementById('ocr-preview-box');
+      const ocrTextEl = document.getElementById('ocr-extracted-text');
+      if (activeTab === 'ocr' && window.lastExtractedOcr) {
+        ocrBox.classList.remove('hidden');
+        ocrTextEl.textContent = `"${window.lastExtractedOcr}"`;
+      } else {
+        ocrBox.classList.add('hidden');
+      }
+
+      document.getElementById('res-entity').textContent = data.entity_targeted || "No identificada";
+      document.getElementById('res-vector').textContent = data.attack_type || "General";
+
+      // Forensics
+      const forensics = data.forensics || {};
+      const whois = forensics.whois || {};
+      const ssl = forensics.ssl_audit || {};
+      const redirs = forensics.redirections || {};
+
+      document.getElementById('res-whois').textContent = whois.age_days != null ? `${whois.age_days} días` : (whois.error ? 'No disponible' : 'Desconocido');
+      document.getElementById('res-ssl').textContent = ssl.has_ssl ? (ssl.issuer || 'Con SSL') : 'Sin HTTPS';
+      document.getElementById('res-hops').textContent = `${redirs.redirects_count || 0} saltos`;
+
+      // Factores
+      const factorsContainer = document.getElementById('res-factors');
+      factorsContainer.innerHTML = '';
+      (data.factors || []).forEach(f => {
+        const item = document.createElement('div');
+        item.className = 'p-2 rounded bg-cyber-darker border-l-2 border-cyber-blue text-gray-300 text-[11px]';
+        item.textContent = f;
+        factorsContainer.appendChild(item);
+      });
+
+      card.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function loadDashboardStats() {
+      try {
+        const res = await fetch('/api/v1/threat-map');
+        if (!res.ok) return;
+        const data = await res.json();
+        const stats = data.statistics || {};
+
+        document.getElementById('stat-total').textContent = stats.total_scanned || 0;
+        document.getElementById('stat-threats').textContent = stats.threats_blocked || 0;
+        document.getElementById('stat-suspicious').textContent = stats.suspicious_count || 0;
+        document.getElementById('stat-safe').textContent = stats.safe_count || 0;
+
+        // Render Macrodistritos
+        const macroList = document.getElementById('macrodistrito-list');
+        macroList.innerHTML = '';
+        const byMacro = stats.by_macrodistrito || {};
+        if (Object.keys(byMacro).length === 0) {
+          macroList.innerHTML = '<div class="text-gray-500 text-[11px]">No hay reportes registrados aún.</div>';
+        } else {
+          for (const [name, count] of Object.entries(byMacro)) {
+            const row = document.createElement('div');
+            row.className = 'flex justify-between items-center p-2 rounded bg-cyber-darker border border-cyber-border text-[11px]';
+            row.innerHTML = `<span class="truncate max-w-[190px] text-gray-300">${name}</span> <b class="text-cyber-yellow">${count} alertas</b>`;
+            macroList.appendChild(row);
+          }
+        }
+
+        // Render Top Entities
+        const entityList = document.getElementById('top-entities-list');
+        entityList.innerHTML = '';
+        const topEnts = stats.top_entities || [];
+        if (topEnts.length === 0) {
+          entityList.innerHTML = '<div class="text-gray-500 text-[11px]">Sin ataques registrados.</div>';
+        } else {
+          topEnts.forEach((e, idx) => {
+            const row = document.createElement('div');
+            row.className = 'flex justify-between items-center p-2 rounded bg-cyber-darker border border-cyber-border text-[11px]';
+            row.innerHTML = `<span class="text-gray-300">#${idx+1} ${e.entity}</span> <b class="text-cyber-red">${e.count} incidentes</b>`;
+            entityList.appendChild(row);
+          });
+        }
+
+      } catch (e) {
+        console.error("Error al cargar estadísticas", e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadDashboardStats();
+      setInterval(loadDashboardStats, 20000);
+    });
+  </script>
+</body>
+</html>

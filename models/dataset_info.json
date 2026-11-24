@@ -1,0 +1,13 @@
+{
+  "url_dataset": {
+    "legitimate": 50,
+    "phishing": 51,
+    "total": 101
+  },
+  "message_dataset": {
+    "legitimate": 46,
+    "phishing": 36,
+    "total": 82
+  },
+  "context": "Bolivia - La Paz: Banco Unión, BNB, BMSC, Yape, Tigo Money, GAMLP, SIN, SEGIP, Entel, DeLaPaz"
+}
